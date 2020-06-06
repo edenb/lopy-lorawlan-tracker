@@ -37,8 +37,5 @@ class Led:
 
     def __flashLED(self, color, brightness, duration):
         self.on(color, brightness)
-        start = utime.ticks_ms()
-        end = start
-        while  utime.ticks_diff(start, end) < duration:
-            end =  utime.ticks_ms()
+        utime.sleep_ms(duration)
         self.off()
