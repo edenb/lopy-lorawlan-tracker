@@ -20,7 +20,7 @@ class Scanner:
             self.nets = testNetworks
         else:
             # Scan available networks
-            self.nets = self.wlan.scan()
+            self.nets = self.wlan.scan(type = WLAN.SCAN_PASSIVE, scantime = 120)
             # Switch WiFi off
             self.wlan.deinit()
 
