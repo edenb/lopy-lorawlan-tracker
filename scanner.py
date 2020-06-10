@@ -11,7 +11,6 @@ class Scanner:
         # Internal (WLAN.INT_ANT) or external (WLAN.EXT_ANT) antenna
         self.wlan.antenna(WLAN.INT_ANT)
         self.nets = []
-        self.netsCnt = 0
         # Define the named tuple that contains the WiFi access point information
         self.net = namedtuple('net', ('ssid', 'bssid', 'sec', 'channel', 'rssi'))
 
@@ -27,107 +26,95 @@ class Scanner:
         # Nets is defined None if no networks are found
         if self.nets is None:
             self.nets = []
-            self.netsCnt = 0
-        else:
-            self.netsCnt = len(self.nets)
 
         # If more than one network, order the list by RSSI (strongest first)
-        if self.netsCnt > 1:
+        if len(self.nets) > 1:
             sorted(self.nets, key = self.__byRssi_key)
 
+        # Flash file storage not used because it is slow
+        #self.storeNets(self.convertNetList(self.nets))
+        #print(self.readNets())
         return self.nets
 
-    def writeStore(self):
-        pycom.nvs_set('netsCnt', self.netsCnt)
+    # Convert from list of named tuples to list of dictionaries
+    # ssid', 'bssid', 'sec', 'channel', 'rssi'
+    def convertNetList(self, tupleNetList):
+        dictNetList = []
+        for tupleNet in tupleNetList:
+            dictNet = {
+                "ssid":tupleNet.ssid,
+                "bssid":tupleNet.bssid,
+                "sec":tupleNet.sec,
+                "channel":tupleNet.channel,
+                "rssi":tupleNet.rssi
+            }
+            dictNetList.append(dictNet)
+        return dictNetList
 
+    def writeLongList(self, name, longVars, maxLen):
         i = 0
-        while (i < 10):
-            if (i < self.netsCnt):
-            #print("Store net 1:", binascii.hexlify(nets[i].bssid).upper().decode('utf-8'))
-                lsb = struct.unpack(">I", self.nets[i].bssid[-4:])[0]
-                msb = struct.unpack(">H", self.nets[i].bssid[0:2])[0]
-            else:
-                lsb = 0
-                msb = 0
-            if (i == 0):
-                pycom.nvs_set('net1lsb', lsb)
-                pycom.nvs_set('net1msb', msb)
-            elif (i == 1):
-                pycom.nvs_set('net2lsb', lsb)
-                pycom.nvs_set('net2msb', msb)
-            elif (i == 2):
-                pycom.nvs_set('net3lsb', lsb)
-                pycom.nvs_set('net3msb', msb)
-            elif (i == 3):
-                pycom.nvs_set('net4lsb', lsb)
-                pycom.nvs_set('net4msb', msb)
-            elif (i == 4):
-                pycom.nvs_set('net5lsb', lsb)
-                pycom.nvs_set('net5msb', msb)
-            elif (i == 5):
-                pycom.nvs_set('net6lsb', lsb)
-                pycom.nvs_set('net6msb', msb)
-            elif (i == 6):
-                pycom.nvs_set('net7lsb', lsb)
-                pycom.nvs_set('net7msb', msb)
-            elif (i == 7):
-                pycom.nvs_set('net8lsb', lsb)
-                pycom.nvs_set('net8msb', msb)
-            elif (i == 8):
-                pycom.nvs_set('net9lsb', lsb)
-                pycom.nvs_set('net9msb', msb)
-            elif (i == 9):
-                pycom.nvs_set('net10lsb', lsb)
-                pycom.nvs_set('net10msb', msb)
+        while i < len(longVars) and i < maxLen:
+            pycom.nvs_set(name+str(i)+'l', struct.unpack(">I", longVars[i][-4:])[0])
+            pycom.nvs_set(name+str(i)+'m', struct.unpack(">H", longVars[i][0:2])[0])
             i = i + 1
+        try:
+            pycom.nvs_erase(name+str(i)+'l')
+            pycom.nvs_erase(name+str(i)+'m')
+        except:
+            return
+        else:
+            return
+
+    def readLongList(self, name):
+        longVars = []
+        i = 0
+        while True:
+            try:
+                lsb = pycom.nvs_get(name+str(i)+'l')
+                msb = pycom.nvs_get(name+str(i)+'m')
+            except:
+                break
+            else:
+                longVars.append(struct.pack(">HI", msb, lsb))
+                i = i + 1
+        return longVars
+
+    def writeStore(self):
+        macList = []
+        i = 0
+        while i < len(self.nets):
+            macList.append(self.nets[i].bssid)
+            i = i + 1
+        self.writeLongList('net', macList, 10)
         return
 
     def readStore(self):
-        self.storedNetsCnt = pycom.nvs_get('netsCnt')
+        macList = self.readLongList('net')
+
         self.storedNets = []
-
-        i = 0
-        while (i < 10):
-            if (i == 0):
-                lsb = pycom.nvs_get('net1lsb')
-                msb = pycom.nvs_get('net1msb')
-            elif (i == 1):
-                lsb = pycom.nvs_get('net2lsb')
-                msb = pycom.nvs_get('net2msb')
-            elif (i == 2):
-                lsb = pycom.nvs_get('net3lsb')
-                msb = pycom.nvs_get('net3msb')
-            elif (i == 3):
-                lsb = pycom.nvs_get('net4lsb')
-                msb = pycom.nvs_get('net4msb')
-            elif (i == 4):
-                lsb = pycom.nvs_get('net5lsb')
-                msb = pycom.nvs_get('net5msb')
-            elif (i == 5):
-                lsb = pycom.nvs_get('net6lsb')
-                msb = pycom.nvs_get('net6msb')
-            elif (i == 6):
-                lsb = pycom.nvs_get('net7lsb')
-                msb = pycom.nvs_get('net7msb')
-            elif (i == 7):
-                lsb = pycom.nvs_get('net8lsb')
-                msb = pycom.nvs_get('net8msb')
-            elif (i == 8):
-                lsb = pycom.nvs_get('net9lsb')
-                msb = pycom.nvs_get('net9msb')
-            elif (i == 9):
-                lsb = pycom.nvs_get('net10lsb')
-                msb = pycom.nvs_get('net10msb')
-
-            readnet = struct.pack(">HI", msb, lsb)
-            self.storedNets.append(self.net(ssid='', bssid=readnet, sec=0, channel=1, rssi=-100))
-            i = i + 1
+        for mac in macList:
+            self.storedNets.append(self.net(ssid='', bssid=mac, sec=0, channel=1, rssi=-100))
         return self.storedNets
+
+    def storeNets(self, nets):
+        f = open('data.txt', 'w+')
+        for net in nets:
+            f.write(repr(net) + '\n')
+        f.close()
+
+    def readNets(self):
+        dictNetList = []
+        f = open('data.txt')
+        nets = f.readlines()
+        for net in nets:
+            dictNetList.append(eval(net))
+        f.close()
+        return dictNetList
 
     def createMessage(self):
         message = bytearray()
         i = 0
-        while (i < self.netsCnt) and (i < 3):
+        while i < len(self.nets) and i < 3:
             # Add BSSID to the LoRa message
             message = message + self.nets[i].bssid
             # Add RSSI (without minus) to the LoRa message
